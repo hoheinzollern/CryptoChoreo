@@ -3,3 +3,6 @@ A tool for deriving implementation-like local behaviours from Alice-and-Bob-styl
 
 # Guide
 The "examples" folder contains example protocols in our choreography language. Run CCHaskell --help for information on using the translator.
+
+# Acknowledgement
+The development of this tool was partly funded by the Horizon Europe project 101093006 TaRDIS - https://project-tardis.eu/.
