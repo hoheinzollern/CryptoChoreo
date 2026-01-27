@@ -1,0 +1,61 @@
+# Verifies, but takes a very long time
+functions:
+public ok: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public half_key: bitstring
+public h: bitstring -> bitstring
+
+
+
+cells: key_map
+
+agents: A B ttp
+
+knowledge: 
+A knows A B ttp pk(ttp) sk(ttp,A).
+B knows A B ttp pk(ttp) sk(ttp,B).
+ttp knows A B ttp pk(ttp) inv(pk(ttp)) sk(ttp,A) sk(ttp,B).
+
+events: 
+
+queries:
+
+choreo:
+
+#A establishes half-key with ttp
+A: new X.
+A -> ttp: (tag1,A,scrypt(exp(g,X),sk(ttp,A))).
+ttp: new Kid.
+ttp -> A: (ok,Kid). 
+
+#B establishes half-key with ttp
+B: new Y.
+B -> ttp: (tag1,B,scrypt(exp(g,Y),sk(ttp,B))).
+ttp: new Kid'.
+ttp -> B: (ok,Kid'). 
+
+#A contacts B with Kid
+A -> B: (tag4,A,B,Kid).
+
+#B replies with Kid'
+B -> A: (tag4,B,A,Kid').
+
+#A requests B's half-key from ttp
+A -> ttp: (tag4,B,A,Kid').
+ttp -> A: sign((tag5,B,exp(g,Y)),inv(pk(ttp))).
+
+#B requests A's key from ttp
+B -> ttp: (tag4,A,B,Kid).
+ttp -> B: sign((tag5,A,exp(g,X)),inv(pk(ttp))).
+
+
+#B sends secret to A
+B: new MSG.
+B -> A: scrypt((tag6,MSG),exp(exp(g,X),Y)).
+MSG secret between A B

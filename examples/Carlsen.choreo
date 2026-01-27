@@ -1,0 +1,23 @@
+functions:
+
+agents: A B s
+
+knowledge: 
+A knows A B s sk(A,s).
+B knows A B s sk(B,s).
+s knows A B s sk(A,s) sk(B,s).
+
+choreo:
+A: new NA.
+A->B: (A,NA).
+B: new NB.
+B->s: (A,NA,B,NB).
+s: new KAB.
+s->B: (scrypt((KAB,NB,A),sk(B,s)),scrypt((NA,B,KAB),sk(A,s))).
+B: new NB2.
+B->A: (scrypt((NA,B,KAB),sk(A,s)),scrypt(NA,KAB),NB2).
+A->B: scrypt(NB2,KAB).
+
+B authenticates s on (KAB,A). #true
+A authenticates s on (KAB,B). #true
+KAB secret between A B s #true

@@ -1,0 +1,43 @@
+functions:
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public message_please: bitstring
+public key: bitstring
+public h: (bitstring,bitstring) -> bitstring
+
+cells: amem ttpmem
+
+agents: a ttp b
+
+knowledge: 
+a knows a ttp sk(a,ttp).
+ttp knows a ttp sk(a,ttp).
+
+events: 
+
+queries:
+
+choreo: 
+
+a: {
+    a: new K/inv(K). amem[key] := (K,inv(K)).
+    a -> ttp: scrypt(sk(a,ttp),(tag1,K)).
+    ttp: ttpmem[key] := K.
+    ttp weakly authenticates a on K.
+    K secret between a ttp
+ +
+    a: (K,inv(K)) := amem[key]. new K'/inv(K'). amem[key] := (K',inv(K')).
+    a -> ttp: (tag2,sign(inv(K),(tag3,K'))).
+    ttp: K := ttpmem[key]. ttpmem[key] := K'.
+    ttp weakly authenticates a on K'.
+    K' secret between a ttp
++
+    a -> ttp: message_please.
+    ttp: K := ttpmem[key].  new MSG.
+    ttp -> a: (tag4,crypt(K,(tag5,MSG))).
+    a: (K,inv(K)) := amem[key].
+    MSG secret between a ttp
+}

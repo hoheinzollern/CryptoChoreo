@@ -1,0 +1,28 @@
+# NSPK with Lowe's fix
+
+functions:
+
+cells:
+
+agents: A B
+
+knowledge: 
+A knows A B pk(A) pk(B) inv(pk(A)).
+B knows A B pk(A) pk(B) inv(pk(B)).
+
+events: 
+
+queries:
+
+choreo:
+
+A: new NA.
+A -> B: crypt(p(NA,A),pk(B)).
+B: new NB.
+B -> A: crypt(p(p(NA,NB),B),pk(A)).
+A -> B: crypt(NB,pk(B)).
+NA secret between A B. # true
+NB secret between A B. # true
+B authenticates A on NA. # true
+A authenticates B on NB. # true
+end

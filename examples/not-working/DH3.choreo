@@ -1,0 +1,49 @@
+#times out
+functions:
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public tag8: bitstring
+public tag9: bitstring
+public h: bitstring -> bitstring
+
+
+agents: A B C
+
+knowledge: 
+A knows A B C pk(A) pk(B) pk(C) inv(pk(A)) .
+B knows A B C pk(A) pk(B) pk(C) inv(pk(B)) .
+C knows A B C pk(A) pk(B) pk(C) inv(pk(C)) 
+
+events: 
+
+queries:
+
+choreo:
+
+A: new X. 
+A -> B: sign((tag1,A,B,C,exp(g,X)),inv(pk(A))).
+
+B: new Y. 
+B -> C: (sign((tag1,A,B,C,exp(g,X)),inv(pk(A))),sign((tag2,A,B,C,exp(g,Y)),inv(pk(B))),sign((tag3,exp(exp(g,X),Y)),inv(pk(B)))).
+
+C: new Z. 
+C -> A: (sign((tag2,A,B,C,exp(g,Y)),inv(pk(B))),sign((tag4,A,B,C,exp(g,Z)),inv(pk(C))),sign((tag5,A,B,C,exp(exp(g,Y),Z)),inv(pk(C)))).
+
+A: new MSG1.
+A -> B: (sign((tag4,A,B,C,exp(g,Z)),inv(pk(C))),sign((tag6,A,B,C,exp(exp(g,X),Z)),inv(pk(A))),scrypt((tag7,MSG1),exp(exp(exp(g,X),Y),Z))).
+
+B: new MSG2.
+B -> C: scrypt((tag8,MSG1,MSG2),exp(exp(exp(g,X),Y),Z)).
+
+C: new MSG3.
+C -> A: scrypt((tag9,MSG1,MSG2,MSG3),exp(exp(exp(g,X),Y),Z)).
+
+A -> B: scrypt((tag9,MSG1,MSG2,MSG3),exp(exp(exp(g,X),Y),Z)).
+MSG1 secret between A B C.
+MSG2 secret between A B C.
+MSG3 secret between A B C

@@ -1,0 +1,19 @@
+# implementation version of NSLPK server
+functions:
+
+cells:
+
+agents: A B s
+
+knowledge: 
+User knows A B s pk(A) pk(s) inv(pk(A)) inv(pk(B)).
+s knows A B s pk(s) pk(A) pk(B) inv(pk(s)).
+
+events: 
+
+queries:
+
+choreo:
+User -> s: (A,B).
+s -> User: sign((pk(B),B),inv(pk(s))).
+end

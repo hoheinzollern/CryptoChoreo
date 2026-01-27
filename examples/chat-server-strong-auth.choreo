@@ -1,0 +1,56 @@
+functions:
+public nonces: bitstring
+public challenge: bitstring
+public verified: bitstring
+public ok: bitstring
+public notok: bitstring
+public dummy: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public tag8: bitstring
+public tag9: bitstring
+public tag10: bitstring
+public tag11: bitstring
+public tag12: bitstring
+public session: bitstring
+public answer: bitstring
+public h: bitstring -> bitstring
+
+cells: ttp_mem
+
+agents: A B ttp
+
+knowledge: 
+A knows A B ttp sk(ttp,A).
+B knows A B ttp sk(ttp,B).
+ttp knows A B ttp sk(ttp,A) sk(ttp,B).
+
+events: 
+
+queries:
+
+choreo:
+
+#A registers message with ttp, and gets nonce from ttp
+A: new MSG. new NA.
+A -> ttp: (tag1,A,scrypt((tag2,B,NA,MSG),sk(ttp,A))).
+ttp: new Nttp. 
+ttp -> A: scrypt((tag3,A,B,NA,Nttp),sk(ttp,A)). 
+
+#A answers nonce
+A -> ttp: (tag4,A,scrypt((tag5,A,NA,Nttp,MSG),sk(ttp,A))).
+ttp -> A: scrypt((tag6,A,B,NA,Nttp),sk(ttp,A)).
+
+#B asks ttp for message
+B: new NB.
+B -> ttp: (tag7,B,scrypt((tag8,A,NB),sk(ttp,B))).
+ttp -> B: scrypt((tag9,B,A,NB,MSG),sk(ttp,B)).
+
+
+MSG secret between A B.
+B authenticates A on MSG

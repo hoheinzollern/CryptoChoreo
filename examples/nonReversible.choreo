@@ -1,0 +1,19 @@
+functions:
+public f: bitstring -> bitstring
+
+agents: A B
+
+knowledge: 
+A knows A B sk(A,B).
+B knows A B sk(A,B).
+
+choreo:
+
+B: new NB.
+B->A: (B,NB).
+A: new NA. new K.
+A->B: (A,scrypt((f(NB),NA,A,K),sk(A,B))).
+B->A: (B,scrypt((f(NA)),K)).
+B authenticates A on NA. #true
+NA secret between A B. #true
+A authenticates B on NB #true

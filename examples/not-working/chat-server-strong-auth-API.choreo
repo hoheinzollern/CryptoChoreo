@@ -1,0 +1,61 @@
+#noaxioms gives false attack
+#withaxioms gives time out
+functions:
+public nonces: bitstring
+public challenge: bitstring
+public verified: bitstring
+public ok: bitstring
+public notok: bitstring
+public dummy: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public tag8: bitstring
+public tag9: bitstring
+public tag10: bitstring
+public tag11: bitstring
+public tag12: bitstring
+public session: bitstring
+public answer: bitstring
+public h: bitstring -> bitstring
+
+cells: ttp_mem
+
+agents: A B ttp User
+
+knowledge: 
+User knows A B ttp sk(ttp,A) sk(ttp,B).
+ttp knows A B ttp sk(ttp,A) sk(ttp,B).
+
+events: 
+
+queries:
+
+choreo:
+
+User: {
+#A registers message with ttp, and gets nonce from ttp
+User: new MSG. new NA.
+User -> ttp: (tag1,A,scrypt(sk(ttp,A),(tag2,B,NA,MSG))).
+ttp: new Nttp. ttp_mem[A] := (tag10,A,B,Nttp,MSG).
+ttp -> User: (scrypt(sk(ttp,A),(tag3,A,B,NA,Nttp))). 
+end
++
+#A answers nonce
+User: new NA. new Nttp. new Sid. new MSG.
+User -> ttp: (tag4,A,scrypt(sk(ttp,A),(tag5,A,NA,Nttp,MSG))).
+ttp: (tag10,A,B,Nttp,MSG) := ttp_mem[A]. ttp_mem[A] := (tag11,A,B,MSG).
+ttp -> User: scrypt(sk(ttp,A),(tag6,A,B,NA,Nttp)).
+end
++
+#B asks ttp for message
+User: new NB. new Sid.
+User -> ttp: (tag7,B,scrypt(sk(ttp,B),(tag8,A,NB))).
+ttp: (tag11,A,B,MSG) := ttp_mem[A]. ttp_mem[A] := (tag12,A,B,MSG).
+ttp -> User: scrypt(sk(ttp,B),(tag9,B,A,NB,MSG)).
+end
+}

@@ -1,0 +1,29 @@
+# NSPK with Lowe's attack
+functions:
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+
+cells:
+
+agents: A B
+
+knowledge: 
+A knows A B pk(A) pk(B) inv(pk(A)).
+B knows A B pk(A) pk(B) inv(pk(B)).
+
+events: 
+
+queries:
+
+choreo:
+A: new NA.
+A -> B: crypt((tag1,NA,A),pk(B)).
+B: new NB.
+B -> A: crypt((tag2,NA,NB),pk(A)).
+A -> B: crypt((tag3,NB),pk(B)).
+NA secret between A B. # false
+NB secret between A B. # false
+(NA,NB) secret between A B. # false
+B authenticates A on NA. # false
+end

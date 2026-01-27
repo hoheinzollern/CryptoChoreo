@@ -1,0 +1,20 @@
+functions:
+public succ: bitstring -> bitstring
+
+agents: A B
+
+knowledge: 
+A knows A B sk(A,B).
+B knows A B sk(A,B).
+
+choreo:
+B: new NB.
+B->A: NB.
+A: new NA. new Text2.
+A->B: scrypt((NA,NB,B,Text2),sk(A,B)).
+B: new Text4.
+B->A: scrypt((NB,NA,Text4),sk(A,B)).
+B authenticates A on Text2. #true
+A authenticates B on Text4  #true
+
+

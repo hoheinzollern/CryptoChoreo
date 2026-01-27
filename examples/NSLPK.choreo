@@ -1,0 +1,33 @@
+# Full NSLPK with ttp
+functions:
+
+cells:
+
+agents: A B s
+
+knowledge: 
+A knows A B s pk(A) pk(s) inv(pk(A)).
+B knows B s pk(B) pk(s) inv(pk(B)).
+s knows A B s pk(s) pk(A) pk(B) inv(pk(s)).
+
+events: 
+
+queries:
+
+choreo:
+A -> s: (A,B).
+s -> A: sign((pk(B),B),inv(pk(s))).
+A: new NA.
+let X <- (NA,A) in
+A -> B: crypt(X,pk(B)).
+B -> s: (B,A).
+s -> B: sign((pk(A),A),inv(pk(s))).
+B: new NB.
+let Y <- ((NA,NB),B) in
+B -> A: crypt(Y,pk(A)).
+A -> B: crypt(NB,pk(B)).
+NA secret between A B.
+NB secret between A B.
+B authenticates A on NA.
+A authenticates B on NB.
+end

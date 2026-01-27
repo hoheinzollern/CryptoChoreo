@@ -1,0 +1,97 @@
+# weird hybrid between api and sequential choreography
+# does not verify
+functions:
+public session: bitstring
+public extend: bitstring
+public created: bitstring
+public created': bitstring
+public envelope: bitstring
+public refuse: bitstring
+public obtain: bitstring
+public requestdcrypt: bitstring
+public extended: bitstring
+public create: bitstring
+public inited: bitstring
+public hash: (bitstring, bitstring) -> bitstring
+
+public boot: bitstring
+public booted: bitstring
+
+public pcr: bitstring
+public key_storage: bitstring
+
+public error: bitstring
+
+cells: tpm_mem 
+
+agents: alice Parent tpm
+
+knowledge: 
+alice knows alice Parent tpm pk(tpm).
+Parent knows alice Parent tpm pk(tpm).
+tpm knows alice Parent tpm pk(tpm) inv(pk(tpm)).
+
+events: 
+event enveloped(bitstring, bitstring)
+event opened(bitstring, bitstring)
+event refused(bitstring)
+
+queries: 
+query V:bitstring, Sid:bitstring; event(enveloped(V,Sid)) && attacker(V) ==> event(opened(V,Sid))
+query V:bitstring, Sid:bitstring; event(enveloped(V,Sid)) && event(refused(Sid)) && attacker(V)
+query V:bitstring, Sid:bitstring; event(enveloped(V,Sid)) && attacker(V) # should be false
+
+choreo:
+
+alice -> tpm: boot.
+tpm: tpm_mem[pcr] := inited. 
+tpm: new Sid. 
+tpm -> alice: (booted,Sid).
+
+alice: new N. 
+alice: new Esk.
+alice -> tpm: (crypt(pk(tpm),(session,Esk)), scrypt(Esk,(extend,N,Sid))).
+tpm: PCR := tpm_mem[pcr]. tpm_mem[pcr] := hash(N,(PCR,Sid)).
+let PCR' <- hash(N,(PCR,Sid)) in
+tpm -> alice: (extended,PCR').
+alice: 
+if PCR' == hash(N,(inited,Sid)) then
+
+
+
+    alice -> tpm: (create,hash(obtain,PCR')).
+    tpm: new K/inv(K). tpm_mem[key_storage] := (inv(K),hash(obtain,PCR')).
+    tpm -> alice: sign(inv(pk(tpm)),(created,K,PCR')).
+
+    alice: new V.
+    alice: event enveloped(V,Sid).
+    alice -> Parent: (crypt(K,(envelope,V)),sign(inv(pk(tpm)),(created,K,PCR'))).
+
+    Parent: new Esk2.
+    Parent -> tpm: crypt(pk(tpm),(session,Esk2)).
+    tpm: new Sid2.
+    tpm -> Parent: Sid2.
+
+    Parent: {
+        Parent -> tpm: scrypt(Esk2,(extend,refuse,Sid2)).
+        tpm: PCR2 := tpm_mem[pcr]. tpm_mem[pcr] := hash(refuse,PCR2).
+        let PCR3 <- hash(refuse,PCR2) in
+        tpm: event refused(Sid).
+        tpm -> Parent: (extended,PCR3).
+        end
+    +
+        Parent -> tpm: scrypt(Esk2,(extend,obtain,Sid2)).
+        tpm: PCR2 := tpm_mem[pcr]. tpm_mem[pcr] := hash(obtain,PCR2).
+        let PCR3 <- hash(obtain,PCR2) in
+        tpm -> Parent: (extended,PCR3).
+
+        Parent -> tpm: (requestdcrypt,crypt(K,(envelope,V)),sign(inv(pk(tpm)),(created,K,PCR'))).
+        tpm: (inv(K),PCR3) := tpm_mem[key_storage].
+        tpm: event opened(V,Sid).
+        tpm -> Parent: (envelope,V).
+        end
+    }
+else 
+    alice -> tpm: error.
+    alice -> Parent: error.
+    end

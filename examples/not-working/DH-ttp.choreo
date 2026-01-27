@@ -1,0 +1,48 @@
+#times out
+functions:
+public nonces: bitstring
+public challenge: bitstring
+public verified: bitstring
+public ok: bitstring
+public notok: bitstring
+public dummy: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public session: bitstring
+public answer: bitstring
+public h: bitstring -> bitstring
+
+
+agents: A B ttp
+
+knowledge: 
+A knows A B ttp pk(ttp) sk(ttp,A).
+B knows A B ttp pk(ttp) sk(ttp,B).
+ttp knows A B ttp pk(ttp) inv(pk(ttp)) sk(ttp,A) sk(ttp,B).
+
+events: 
+
+queries:
+
+choreo:
+
+#A establishes half-key with ttp
+A: new X. new NA.
+A -> ttp: (tag1,A,scrypt((B,NA,exp(g,X)),sk(ttp,A))).
+ttp -> B: sign((tag2,A,B,NA,exp(g,X)),inv(pk(ttp))). 
+
+#B establishes half-key with ttp
+B: new Y. new NB.
+B -> ttp: (tag1,B,scrypt((A,NB,exp(g,Y)),sk(ttp,B))).
+ttp -> A: sign((tag2,B,A,NB,exp(g,Y)),inv(pk(ttp))). 
+
+
+#B sends secret to A
+A: new MSG.
+A -> B: scrypt((tag3,NB,MSG),exp(exp(g,Y),X)).
+MSG secret between A B

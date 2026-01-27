@@ -1,0 +1,55 @@
+#withaxioms verifies
+#noaxioms times out
+functions:
+public nonces: bitstring
+public challenge: bitstring
+public verified: bitstring
+public ok: bitstring
+public notok: bitstring
+public dummy: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public session: bitstring
+public answer: bitstring
+public h: bitstring -> bitstring
+
+cells: key_map
+
+agents: A B ttp User
+
+knowledge: 
+User knows A B ttp pk(B) inv(pk(B)) pk(ttp) inv(pk(ttp)) sk(ttp,A).
+ttp knows A B ttp pk(B) pk(ttp) inv(pk(ttp)) sk(ttp,A).
+
+events: 
+
+queries:
+
+choreo:
+
+User: {
+#establish key
+User: new K/inv(K).
+User -> ttp: (tag1,A,scrypt(K,sk(ttp,A))).
+ttp: key_map[(A)] := K.
+ttp -> User: (ok,K). 
+end
++
+#update key
+# User: new K/inv(K). new K'/inv(K').
+# User -> ttp: (tag2,A,sign((tag3,K'),inv(K))).
+# ttp: K := key_map[(A)]. key_map[(A)] := K'.
+# ttp -> User: (ok,K').
+# end
+# +
+#retrieve key
+User -> ttp: (tag4,A,B).
+ttp: K := key_map[(A)].
+ttp -> User: sign((tag5,A,K),inv(pk(ttp))).
+end
+}

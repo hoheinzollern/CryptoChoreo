@@ -1,0 +1,49 @@
+# withaxioms verifies
+#noaxioms gives false attack 
+
+functions:
+public classified: bitstring
+public declassified: bitstring
+public deleted: bitstring
+public initialize: bitstring
+public reveal: bitstring
+public remove: bitstring
+public state_addr: bitstring
+
+cells: state
+
+agents: a b
+
+# knowledge: 
+
+events: 
+event classify(bitstring)
+event declassify(bitstring)
+event delete(bitstring)
+
+queries: 
+
+choreo:
+
+b: {
+    b -> a: initialize .
+    a:
+        new S.
+        state[state_addr] := (S,classified).
+    a: event classify(S) . 
+    a -> b: classified . end
++   
+    b -> a: reveal .
+    a: 
+        (S,classified) := state[state_addr].
+        state[state_addr] := (S,declassified).
+    a: event declassify(S).
+    a -> b: (declassified,S) . end
++
+    b -> a: remove .
+    a:
+        (S,classified) := state[state_addr].
+        state[state_addr] := (S,deleted).
+    a: event delete(S).
+    a -> b: deleted . end
+}

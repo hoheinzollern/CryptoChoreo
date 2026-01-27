@@ -1,0 +1,82 @@
+#noaxioms times out 
+#withaxioms times out
+functions:
+public nonces: bitstring
+public challenge: bitstring
+public verified: bitstring
+public ok: bitstring
+public notok: bitstring
+public dummy: bitstring
+public session: bitstring
+public answer: bitstring
+public step1: bitstring
+public step2: bitstring
+public step3: bitstring
+public step4: bitstring
+public step5: bitstring
+public step6: bitstring
+public step7: bitstring
+
+cells: mem_nonces mem_challenge mem_verified
+
+agents: User ttp A B
+
+knowledge: 
+User knows A B ttp pk(B) pk(ttp) inv(pk(A)) inv(pk(B)).
+ttp knows A B ttp pk(B) pk(ttp) inv(pk(ttp)) pk(A).
+
+events: 
+
+queries: 
+
+choreo:
+
+
+#nonce exchange between A and B
+# A: new X/inv(X).
+# A -> B: crypt(pk(B),(step1,A,X)).
+# B: new NB.
+# B -> A: crypt(X,(step2,A,B,NB)).
+User: {
+
+#A requests authentication from ttp and receives challenge
+User: new X.
+User: new NB.
+User -> ttp: (step3,crypt(pk(ttp),(session,A,B,X,NB))).
+ttp: new Challenge.
+ttp: 
+    mem_nonces[(A,B)] := (nonces,A,B,X,NB).
+    mem_challenge[(A,B)] := (challenge,A,B,Challenge).
+    mem_verified[(A,B)] := (notok,A,B).
+ttp -> User: (step4,Challenge).
+end
++
+#A answers challenge 
+User: new X.
+User: new NB.
+User: new Challenge.
+User -> ttp: (step5,crypt(pk(ttp),(answer,A,B,X,NB,sign(inv(pk(A)),Challenge)))).
+ttp: 
+    (nonces,A,B,X,NB) := mem_nonces[(A,B)].
+    (challenge,A,B,Challenge) := mem_challenge[(A,B)].
+    mem_verified[(A,B)] := (ok,A,B,X,NB).
+ttp -> User: (step6,A,B,ok).
+end
++
+#A contacts B again
+# User: new MSG1.
+# A: new K.
+# A -> B: (step6,A,B,sign(inv(X),(A,B,crypt(pk(B),K))),scrypt(K,(MSG1,h((X,NB))))).
+# end
+
+#B asks ttp for authentication of A
+User -> ttp: (step7,A,B).
+ttp: 
+    (ok,A,B,X,NB) := mem_verified[(A,B)].
+ttp -> User: sign(inv(pk(ttp)),(ok,A,B,X,NB)).
+end
+
+#B answers A
+# B: new MSG2.
+# B -> A: scrypt(K,(MSG2,h((X,NB,MSG1)))).
+}

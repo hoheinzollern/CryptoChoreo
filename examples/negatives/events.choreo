@@ -1,0 +1,41 @@
+# Simple check of events and memory cells 
+# When B declares NA as finished, it should have been started as well (also by B)
+
+functions:
+public outgoing: bitstring
+public ingoing: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public val: bitstring
+
+cells: mem
+
+agents: A B
+
+knowledge: 
+A knows A B sk(A,B).
+B knows A B sk(A,B).
+
+events: 
+event start(bitstring, bitstring, bitstring)
+event finish(bitstring, bitstring, bitstring)
+
+queries: 
+query A:agent, B:agent, N:bitstring; A <> i && B <> i && event(finish(A,B,N)) # false
+
+choreo:
+
+A:{
+    A: new NA.
+    A: mem[(A,B,outgoing)] := (val,NA).
+    A -> B: (tag1,scrypt(NA,sk(A,B))).
+    B: event start(A,B,NA).
+    B: mem[(B,A,ingoing)] := (val,NA).
+    end
++
+    A: (val,NA) := mem[(A,B,outgoing)].
+    A -> B: (tag2,scrypt(NA,sk(A,B))).
+    B: (val,NA) := mem[(B,A,ingoing)].
+    B: event finish(A,B,NA).
+    end
+}

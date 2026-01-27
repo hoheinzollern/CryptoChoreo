@@ -1,0 +1,41 @@
+# Verifies, but takes a very long time
+functions:
+public ok: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public half_key: bitstring
+public h: bitstring -> bitstring
+
+
+cells: key_map
+
+agents: A B ttp User
+
+knowledge: 
+User knows A B ttp pk(ttp) sk(ttp,A) sk(ttp,B).
+ttp knows A B ttp pk(ttp) inv(pk(ttp)) sk(ttp,A) sk(ttp,B).
+
+events: 
+
+queries:
+
+choreo:
+
+User: {
+#User establishes half-key with ttp
+User: new X.
+User -> ttp: (tag1,A,scrypt(GX,sk(ttp,A))).
+ttp: new Kid. key_map[(A,Kid)] := (half_key,GX).
+ttp -> User: (ok,Kid). end
++
+#User requests B's half-key from ttp
+User: new Kid.
+User -> ttp: (tag4,B,A,Kid).
+ttp: (half_key,GY) := key_map[(B,Kid)].
+ttp -> User: sign((tag5,B,GY),inv(pk(ttp))). end
+}

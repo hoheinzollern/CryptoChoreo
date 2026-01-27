@@ -1,0 +1,35 @@
+# Simple failing test. Both queries should fail.
+# There is no authentication, so the attacker simply makes s sign something they know twice
+
+agents: A s
+
+knowledge: 
+A knows A s pk(s).
+s knows pk(s) inv(pk(s)).
+
+events: 
+event attack1()
+event attack2()
+
+queries: 
+query ; event(attack1()) # false
+query ; event(attack2()) # false
+
+choreo:
+
+A : {
+    A: new NA.
+    A -> s: crypt(NA,pk(s)).
+    s: 
+    s -> A: sign(NA,inv(pk(s))).
+    end
++
+    A: new NA.
+    A: new NB.
+    A -> s: (NA,NB).
+    s: {
+        if NA == sign(sign(NB,inv(pk(s))),inv(pk(s))) 
+        then s: event attack1(). end
+        else s: event attack2(). end
+    }
+}

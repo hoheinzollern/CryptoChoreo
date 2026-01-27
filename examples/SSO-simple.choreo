@@ -1,0 +1,57 @@
+functions:
+public nonces: bitstring
+public challenge: bitstring
+public verified: bitstring
+public ok: bitstring
+public notok: bitstring
+public dummy: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public session: bitstring
+public answer: bitstring
+public h: bitstring -> bitstring
+
+cells: key_map
+
+agents: A B ttp
+
+knowledge: 
+A knows A B ttp pk(B) pk(ttp) sk(ttp,A).
+B knows A B ttp pk(ttp) pk(B) inv(pk(B)).
+ttp knows A B ttp pk(B) pk(ttp) inv(pk(ttp)) sk(ttp,A).
+
+events: 
+event reached_end(bitstring)
+
+queries:
+#query M: bitstring; event(reached_end(M))
+
+choreo:
+
+#A establishes key with ttp
+A: new K/inv(K).
+A -> ttp: (tag1,A,scrypt(K,sk(ttp,A))).
+ttp -> A: (ok,K). 
+
+# #A updates key with ttp 
+# A: new K'/inv(K').
+# A -> ttp: (tag2,A,sign((tag3,K'),inv(K))).
+# ttp -> A: (ok,K').
+
+#A notifies B of key update
+A -> B: (tag4,A,B).
+
+#B requests A's key from ttp
+B -> ttp: (tag4,A,B).
+ttp -> B: sign((tag5,A,K),inv(pk(ttp))). # change to K' if update step is included
+
+#B sends secret to A
+B: new MSG.
+B -> A: sign(crypt((tag6,MSG),K),inv(pk(B))). # change to K' if update step is included
+A: event reached_end(MSG).
+MSG secret between A B

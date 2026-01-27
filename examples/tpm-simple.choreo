@@ -1,0 +1,67 @@
+functions:
+public session: bitstring
+public extend: bitstring
+public created: bitstring
+public created': bitstring
+public envelope: bitstring
+public refuse: bitstring
+public obtain: bitstring
+public requestdcrypt: bitstring
+public extended: bitstring
+public create: bitstring
+public inited: bitstring
+public boot2: bitstring
+public dummy: bitstring
+
+public hash: (bitstring, bitstring) -> bitstring
+
+public boot: bitstring
+public booted: bitstring
+
+public pcr: bitstring
+public key_storage: bitstring
+
+public error: bitstring
+
+cells: tpm_mem 
+
+agents: alice Parent tpm
+
+knowledge: 
+alice knows alice Parent tpm pk(tpm).
+Parent knows alice Parent tpm pk(tpm).
+tpm knows alice Parent tpm pk(tpm) inv(pk(tpm)).
+
+events: 
+event enveloped(bitstring, bitstring)
+event opened(bitstring, bitstring)
+event refused(bitstring)
+
+queries: 
+query V:bitstring, Sid:bitstring; event(enveloped(V,Sid)) && attacker(V) ==> event(opened(V,Sid))
+query V:bitstring, Sid:bitstring; event(enveloped(V,Sid)) && event(refused(Sid)) && attacker(V)
+
+choreo:
+
+alice: new N. 
+alice -> tpm: (boot,crypt((session,N),pk(tpm))).
+tpm: new Sid. new K/inv(K).
+tpm -> alice: (extended,Sid,sign((created,K,N,Sid),inv(pk(tpm)))).
+
+
+alice: new V.
+alice: event enveloped(V,Sid).
+alice -> Parent: (Sid,crypt((envelope,V),K),sign((created,K,N,Sid),inv(pk(tpm)))).
+
+
+Parent: {
+    Parent -> tpm: (extend,refuse,Sid).
+    tpm: event refused(Sid).
+    tpm -> Parent: (extended,refuse).
+    end
++
+    Parent -> tpm: (requestdcrypt,Sid,crypt((envelope,V),K),sign((created,K,N,Sid),inv(pk(tpm)))).
+    tpm: event opened(V,Sid).
+    tpm -> Parent: (envelope,V).
+    end
+}

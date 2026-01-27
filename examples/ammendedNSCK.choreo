@@ -1,0 +1,28 @@
+functions:
+public pre: bitstring -> bitstring
+
+agents: A B s
+
+knowledge: 
+A knows A B s sk(A,s).
+B knows A B s sk(B,s).
+s knows A B s sk(A,s) sk(B,s).
+
+choreo:
+
+A->B: A.
+B: new NB0.
+B->A: scrypt((A,NB0),sk(B,s)).
+A: new NA.
+A->s: (A,B,NA,scrypt((A,NB0),sk(B,s))).
+s: new KAB.
+s->A: scrypt((NA,B,KAB,scrypt((KAB,NB0,A),sk(B,s))),sk(A,s)).
+A->B: scrypt((KAB,NB0,A),sk(B,s)).
+B: new NB.
+B->A: scrypt(NB,KAB).
+A->B: scrypt(pre(NB),KAB).
+
+A authenticates B on NB. #true
+B authenticates A on pre(NB). #true
+NB secret between A B. #true
+end

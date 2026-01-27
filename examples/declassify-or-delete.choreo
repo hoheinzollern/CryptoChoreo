@@ -1,0 +1,41 @@
+# Protocol where a secret can either be declassified or deleted
+# Once deleted, it cannot be recovered
+
+functions:
+public classified: bitstring
+public declassified: bitstring
+public deleted: bitstring
+public initialize: bitstring
+public reveal: bitstring
+public remove: bitstring
+public state_addr: bitstring
+
+cells: state
+
+agents: a b
+
+# knowledge: 
+
+events: 
+event classify(bitstring)
+event declassify(bitstring)
+event delete(bitstring)
+
+queries: 
+query B: bitstring; event(classify(B)) && attacker(B) ==> event(declassify(B)) # true
+query B: bitstring; event(classify(B)) && event(delete(B)) && attacker(B) # true
+
+choreo:
+b -> a: initialize.
+a: new S. event classify(S).
+a -> b: classified.
+
+b: {
+    b -> a: reveal.
+    a: event declassify(S).
+    a -> b: (declassified,S). end
++
+    b -> a: remove.
+    a: event delete(S).
+    a -> b: deleted. end
+}

@@ -1,0 +1,44 @@
+functions:
+public nonces: bitstring
+public challenge: bitstring
+public verified: bitstring
+public ok: bitstring
+public notok: bitstring
+public dummy: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public session: bitstring
+public answer: bitstring
+public h: bitstring -> bitstring
+
+
+agents: A B 
+
+knowledge: 
+A knows A B pk(A) pk(B) inv(pk(A)) .
+B knows A B pk(A) pk(B) inv(pk(B)) .
+
+events: 
+
+queries:
+
+choreo:
+
+A: new X. 
+A -> B: crypt((tag1,A,B,exp(g,X)),pk(B)).
+
+B: new Y. 
+B -> A: crypt((tag2,A,B,exp(g,Y)),pk(A)).
+
+A: new MSG1.
+A -> B: scrypt((tag3,MSG1),exp(exp(g,X),Y)).
+
+B: new MSG2.
+B -> A: scrypt((tag6,MSG2),exp(exp(g,X),Y)).
+MSG1 secret between A B.
+MSG2 secret between A B

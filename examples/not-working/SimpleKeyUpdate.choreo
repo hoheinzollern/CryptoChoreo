@@ -1,0 +1,47 @@
+# times out
+functions:
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public taga: bitstring
+public tagb: bitstring
+public tagc: bitstring
+public h: (bitstring,bitstring) -> bitstring
+
+cells: mema memb
+
+agents: A B
+
+knowledge: 
+A knows A B sk(A,B).
+B knows A B sk(A,B).
+
+events: 
+
+queries:
+
+choreo:
+
+A: {
+    A: new KA. 
+    A -> B: scrypt(sk(A,B),(taga,A,B,KA)).
+    B: new KB.
+    B -> A: scrypt(sk(A,B),(tagb,A,B,KA,KB)).
+    A: mema[(A,B)] := (tag1,h(KA,KB)).
+    A -> B: scrypt(h(KA,KB),(tagc,A,B)).
+    B: memb[(B,A)] := (tag2,h(KA,KB)).
+    h(KA,KB) secret between A B
+ +
+    A: (tag1,K) := mema[(A,B)].
+    A: new KA. 
+    A -> B: scrypt(K,(tag3,A,B,KA)).
+    B: K := memb[(B,A)].
+    B: new KB.
+    B -> A: scrypt(K,(tag4,A,B,KA,KB)).
+    A: mema[(A,B)] := (tag1,h(KA,KB)).
+    A -> B: scrypt(h(KA,KB),(tag5,A,B)).
+    B: memb[(B,A)] := (tag2,h(KA,KB)).
+    h(KA,KB) secret between A B
+}

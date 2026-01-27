@@ -1,0 +1,42 @@
+functions:
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public dummy: bitstring
+
+cells: mem
+
+agents: A B
+
+knowledge: 
+A knows A B sk(A,B).
+B knows A B sk(A,B).
+
+events: 
+
+queries:
+
+choreo:
+
+A: {
+    A: new K.
+    A: mem[(A,B)] := K.
+    A -> B: scrypt(sk(A,B),K).
+    B: mem[(B,A)] := K.
+    K secret between A B
++
+    A: new K'.
+    A: K := mem[(A,B)]. mem[(A,B)] := K'.
+    A -> B: scrypt(K,(tag1,K')).
+    B: K := mem[(B,A)]. mem[(B,A)] := K'.
+    K' secret between A B
++
+    A: K := mem[(A,B)].
+    A: new MSG.
+    A -> B: scrypt(K,(tag2,MSG)).
+    B: K := mem[(B,A)]. new N.
+    B -> A: N.
+    A -> B: scrypt(K,(tag3,A,B,MSG,N)).
+    MSG secret between A B.
+    B authenticates A on MSG
+}

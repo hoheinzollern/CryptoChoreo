@@ -1,0 +1,39 @@
+# type-safe NSLPK version
+
+functions:
+public tag0: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+
+cells:
+
+agents: A B s
+
+knowledge: 
+A knows A B s pk(A) pk(s) inv(pk(A)).
+B knows B s pk(B) pk(s) inv(pk(B)).
+s knows A B s pk(s) pk(A) pk(B) inv(pk(s)).
+
+events: 
+
+queries:
+
+choreo:
+A -> s: (tag0,A,B).
+s -> A: sign((pk(B),B),inv(pk(s))).
+A: new NA.
+let X <- (tag1,NA,A) in
+A -> B: crypt(X,pk(B)).
+B -> s: (tag0,B,A).
+s -> B: sign((pk(A),A),inv(pk(s))).
+B: new NB.
+let Y <- (tag2,NA,NB,B) in
+B -> A: crypt(Y,pk(A)).
+let Z <- (tag3,NB) in
+A -> B: crypt(Z,pk(B)).
+NA secret between A B. # true
+NB secret between A B. # true
+B authenticates A on NA. # true
+A authenticates B on NB. # true
+end

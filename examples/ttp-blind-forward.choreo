@@ -1,0 +1,43 @@
+functions:
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public update_key: bitstring
+public check_status: bitstring
+public status: bitstring
+public mac: (bitstring,bitstring) -> bitstring
+
+cells: key_map key_storage
+
+agents: A B ttp
+
+knowledge: 
+A knows A B ttp pk(B) pk(ttp) sk(A,ttp).
+B knows B ttp pk(ttp) pk(B) inv(pk(B)).
+ttp knows A B ttp pk(B) pk(ttp) inv(pk(ttp)) sk(A,ttp).
+
+events: 
+
+queries:
+
+choreo:
+
+A: {
+    # A wants to update the key it has stored with B
+    A: new K/inv(K) . key_storage[A] := (K,inv(K)).
+    let M <- crypt((update_key,A,K),pk(B)) in
+    A -> ttp: (tag1,B,M,mac(M,sk(A,ttp))).
+    ttp -> B: sign((tag2,A,B,M),inv(pk(ttp))).
+    B: key_map[(B,A)] := K.
+    B weakly authenticates A on K #K is a public key, so we don't really care about its secrecy
++
+    # A wants to check the status of something 
+    A:  new NA . 
+    let M <- crypt((check_status,A,B,NA),pk(B)) in 
+    A -> ttp: (tag1,B,M,mac(M,sk(A,ttp))).
+    ttp -> B: sign((tag2,A,B,M),inv(pk(ttp))).
+    B: K := key_map[(B,A)]. new Status. # simulating B checking the status of whatever A is subscribing to
+    B -> A: crypt((status,NA,Status),K).
+    A: (K,inv(K)) := key_storage[A] .
+    Status secret between A B
+}

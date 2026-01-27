@@ -1,0 +1,34 @@
+#times out
+functions:
+public ok: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public half_key: bitstring
+public h: bitstring -> bitstring
+
+
+cells: key_map
+
+
+agents: A B ttp
+
+knowledge: 
+User knows A B ttp pk(ttp) sk(ttp,A) sk(ttp,B).
+ttp knows A B ttp pk(ttp) inv(pk(ttp)) sk(ttp,A) sk(ttp,B).
+
+events: 
+
+queries:
+
+choreo:
+
+#User asks ttp to forward half-key to B
+User: new GX. new NA.
+User -> ttp: (tag1,A,scrypt((B,NA,GX),sk(ttp,A))).
+ttp -> User: sign((tag2,A,B,NA,GX),inv(pk(ttp))). 
+end

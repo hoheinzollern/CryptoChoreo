@@ -1,0 +1,165 @@
+# Work in progress
+
+functions:
+public contract_tag1: bitstring
+public contract_tag2: bitstring
+public aborted: bitstring
+public resolved: bitstring
+public ok: bitstring
+public step1: bitstring
+public step2: bitstring
+public step3: bitstring
+public step4: bitstring
+public step5: bitstring
+public step6: bitstring
+public step7: bitstring
+public time_out: bitstring
+public h: bitstring -> bitstring
+
+cells: ttp_mem
+
+agents: O R ttp
+
+knowledge: 
+O knows O R ttp pk(ttp) pk(R) pk(O) inv(pk(O)).
+R knows O R ttp pk(ttp) pk(R) pk(O) inv(pk(R)).
+ttp knows O R ttp pk(ttp) pk(R) pk(O) inv(pk(ttp))
+
+events: 
+event resolve(bitstring,bitstring)
+event abort(bitstring)
+event finish(bitstring,bitstring)
+event contract_obtained(bitstring,bitstring,bitstring)
+
+
+queries:
+query M1: bitstring, M2: bitstring; event(abort(M1)) && event(resolve(M1,M2))
+# query M1: bitstring; event(abort(M1)) 
+# query M1: bitstring, M2: bitstring; event(resolve(M1,M2))
+
+# If both agents are done and one has a contract, then they both have a contract in common
+# Agents must be honest because the intruder might just refuse to acknowledge a contract they actually have (this could probably be refined)
+query M1: bitstring, M2: bitstring, M3: bitstring, O: agent, R: agent; 
+    O <> ttp && R <> ttp && O <> i && R <> i && event(finish(O,M1)) && event(finish(R,M1)) && event(contract_obtained(O,M1,M2)) ==> 
+        event(contract_obtained(O,M1,M3)) && event(contract_obtained(R,M1,M3))
+
+# query O: agent, R: agent, Text: bitstring, NO: bitstring, NR: bitstring; 
+#     event(finish(O,sign(inv(pk(O)),(contract_tag1,O,R,ttp,Text,h(NO)))))
+
+choreo:
+
+#O suggests contract
+O: new Text. new NO.
+let M1 <- sign((contract_tag1,O,R,ttp,Text,h(NO)),inv(pk(O))) in
+O -> R: M1.
+
+#R either signs contract or times out
+R: {
+    new NR.
+    let M2 <- sign((contract_tag2,M1,h(NR)),inv(pk(R))) in
+    R -> O: M2.
+
+    #O either confirms contract or times out
+    O: {
+        O -> R: sign((NO,h(NR)),inv(pk(O))).
+        R: event contract_obtained(R,M1,M2). event finish(R,M1).
+
+        #R either confirms contract or times out
+        R: {
+            R -> O: sign((NR,h(NO)),inv(pk(R))). 
+            O: event contract_obtained(O,M1,M2). event finish(O,M1).
+            O -> ttp: ok . # our translation semantics do not allow a protocol to end by an agent maybe waiting forever
+
+            O authenticates R on M2.
+            R weakly authenticates O on M1 #since M1 does not contain NR we only get weak authentication
+        +
+            R -> O: time_out.
+
+            #O asks ttp to resolve
+            O -> ttp: (M1,M2).
+
+            #ttp checks if contract has already been aborted
+            ttp: {
+                memory_initial_value := ttp_mem[M1].
+                ttp_mem[M1] := (resolved,M2).
+                ttp: event resolve(M1,M2).
+                ttp -> O: sign((resolved,M1,M2),inv(pk(ttp))). 
+                O: event contract_obtained(O,M1,M2). event finish(O,M1). 
+                end
+            +
+                aborted := ttp_mem[M1].
+                ttp -> O: sign((aborted,M1),inv(pk(ttp))). 
+                O: event finish(O,M1).
+                end
+            +
+                (resolved,M2) := ttp_mem[M1].
+                ttp -> O: sign((resolved,M1,M2),inv(pk(ttp))). 
+                O: event contract_obtained(O,M1,M2). event finish(O,M1).
+                end
+            }
+        }
+    +
+        O -> R: time_out.
+
+        #R asks ttp to resolve
+        R -> ttp: (M1,M2).
+
+        #ttp checks if contract has already been aborted
+        ttp: {
+            memory_initial_value := ttp_mem[M1].
+            ttp_mem[M1] := (resolved,M2).
+            ttp: event resolve(M1,M2).
+            ttp -> R: sign((resolved,M1,M2),inv(pk(ttp))). 
+            R: event contract_obtained(R,M1,M2). event finish(R,M1).
+            end
+        +
+            aborted := ttp_mem[M1].
+            ttp -> R: sign((aborted,M1),inv(pk(ttp))). 
+            R: event finish(R,M1).
+            end
+        +
+            (resolved,M2) := ttp_mem[M1].
+            ttp -> R: sign((resolved,M1,M2),inv(pk(ttp))). 
+            R: event contract_obtained(R,M1,M2). event finish(R,M1).
+            end
+        }
+    }
++
+    R -> O: time_out.
+    
+    #O asks ttp to abort
+    O -> ttp: sign((aborted,M1),inv(pk(O))).
+
+    #ttp checks if contract has already been resolved
+    ttp: {
+        # X := ttp_mem[M1].
+        # if X == memory_initial_value 
+        # then 
+        #     ttp_mem[M1] := aborted. 
+        #     ttp: event abort(M1).
+        #     ttp -> O: sign(inv(pk(ttp)),(aborted,M1)). 
+        #     O: event finish(O,M1).
+        #     end
+        # else
+        #     ttp -> O: X. 
+
+
+        memory_initial_value := ttp_mem[M1].
+        ttp_mem[M1] := aborted. 
+        ttp: event abort(M1).
+        ttp -> O: sign((aborted,M1),inv(pk(ttp))). 
+        O: event finish(O,M1).
+        end
+    +
+        aborted := ttp_mem[M1].
+        ttp -> O: sign((aborted,M1),inv(pk(ttp))). 
+        O: event finish(O,M1).
+        end
+
+    +
+        (resolved,M2) := ttp_mem[M1].
+        ttp -> O: sign((resolved,M1,M2),inv(pk(ttp))). 
+        O: event contract_obtained(O,M1,M2). event finish(O,M1).
+        end
+    }
+}

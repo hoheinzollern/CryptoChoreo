@@ -1,0 +1,49 @@
+#verifies with both memory models
+functions:
+public nonces: bitstring
+public challenge: bitstring
+public verified: bitstring
+public ok: bitstring
+public notok: bitstring
+public dummy: bitstring
+public tag1: bitstring
+public tag2: bitstring
+public tag3: bitstring
+public tag4: bitstring
+public tag5: bitstring
+public tag6: bitstring
+public tag7: bitstring
+public session: bitstring
+public answer: bitstring
+public h: bitstring -> bitstring
+
+cells: ttp_mem
+
+agents: User A B ttp
+
+knowledge: 
+User knows A B ttp sk(ttp,A) sk(ttp,B).
+ttp knows A B ttp sk(ttp,A) sk(ttp,B).
+
+events: 
+
+queries:
+
+choreo:
+
+
+User : {
+#A registers message with ttp
+User: new MSG. new NA.
+User -> ttp: (tag1,A,scrypt((tag2,B,NA,MSG),sk(ttp,A))).
+ttp: new Sid. ttp_mem[A] := (tag7,A,B,MSG).
+ttp -> User: (scrypt((tag3,A,B,NA),sk(ttp,A))). 
+end
++
+#B asks ttp for message
+User: new NB.
+User -> ttp: (tag4,B,scrypt((tag5,A,NB),sk(ttp,B))). 
+ttp: (tag7,A,B,MSG) := ttp_mem[A]. ttp_mem[A] := dummy.
+ttp -> User: (scrypt((tag6,B,A,NB,MSG),sk(ttp,B))). 
+end
+}

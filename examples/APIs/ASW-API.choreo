@@ -1,0 +1,84 @@
+# Must either be exported with axioms or a memory initializer must be added
+
+functions:
+public contract_tag1: bitstring
+public contract_tag2: bitstring
+public aborted: bitstring
+public resolved: bitstring
+public ok: bitstring
+public step1: bitstring
+public step2: bitstring
+public step3: bitstring
+public step4: bitstring
+public step5: bitstring
+public step6: bitstring
+public step7: bitstring
+public time_out: bitstring
+public h: bitstring -> bitstring
+public memory_initial_value: bitstring # necessary for translation. Will cause duplicate Proverif definition, one of which must be removed
+
+cells: ttp_mem
+
+agents: O R ttp
+
+knowledge: 
+User knows O R ttp pk(ttp) pk(R) pk(O) inv(pk(O)) inv(pk(R)).
+ttp knows O R ttp pk(ttp) pk(R) pk(O) inv(pk(ttp))
+
+events: 
+event resolve(bitstring,bitstring)
+event abort(bitstring)
+event finish(bitstring,bitstring)
+event contract_obtained(bitstring,bitstring)
+
+
+queries:
+
+choreo:
+
+#Contract:
+let M1 <- sign((contract_tag1,O,R,ttp,Text,h(NO)),inv(pk(O))) in
+let M2 <- sign((contract_tag2,M1,h(NR)),inv(pk(R))) in
+
+#R either signs contract or times out
+User: {
+    #User asks ttp to resolve
+    User -> ttp: (M1,M2).
+
+    #ttp checks if contract has already been aborted
+    ttp: {
+        memory_initial_value := ttp_mem[M1].
+        ttp_mem[M1] := (resolved,M2).
+        ttp: event resolve(M1,M2).
+        ttp -> User: sign((resolved,M1,M2),inv(pk(ttp))). 
+        end
+    +
+        aborted := ttp_mem[M1].
+        ttp -> User: sign((aborted,M1),inv(pk(ttp))). 
+        end
+    +
+        (resolved,M2) := ttp_mem[M1].
+        ttp -> User: sign((resolved,M1,M2),inv(pk(ttp))). 
+        end
+    }
++
+    #User asks ttp to abort
+    User -> ttp: sign((aborted,M1),inv(pk(O))).
+
+    #ttp checks if contract has already been resolved
+    ttp: {
+        memory_initial_value := ttp_mem[M1].
+        ttp_mem[M1] := aborted. 
+        ttp: event abort(M1).
+        ttp -> User: sign((aborted,M1),inv(pk(ttp))). 
+        end
+    +
+        aborted := ttp_mem[M1].
+        ttp -> User: sign((aborted,M1),inv(pk(ttp))). 
+        end
+    +
+        (resolved,M2) := ttp_mem[M1].
+        ttp -> User: sign((resolved,M1,M2),inv(pk(ttp))). 
+        end
+    }
+}

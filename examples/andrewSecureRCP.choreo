@@ -1,0 +1,22 @@
+functions:
+public succ: bitstring -> bitstring
+public msg: bitstring
+
+agents: A B
+
+knowledge: 
+A knows A B sk(A,B).
+B knows A B sk(A,B).
+
+choreo:
+
+A: new NA.
+A->B: (A,scrypt(NA,sk(A,B))).
+B: new NB.
+B->A: scrypt((succ(NA),NB),sk(A,B)).
+A->B: scrypt(succ(NB),sk(A,B)).
+B: new NB2.
+B->A: scrypt((msg,NB2),sk(A,B)). #format added because proverif fails analysis otherwise
+A weakly authenticates B on NB2. #true
+NB2 secret between A B. #true
+end
