@@ -19,7 +19,7 @@ import ProVerifPrinter
 import ProtocolSetup (protocolSetup)
 import System.Environment (getArgs)
 import System.Exit (exitSuccess)
-import System.IO (stdin, hGetContents, hPutStrLn, stderr)
+import System.IO (stdin, hGetContents, hPutStrLn, stderr, hIsTerminalDevice)
 import System.Process (system)
 import Control.Monad (unless, forM, forM_, when)
 import Data.Set (Set)
@@ -30,6 +30,7 @@ import qualified Control.Monad.Trans.State as State
 import qualified Control.Monad.Trans.State (State)
 import qualified Data.Bifunctor as Bifunctor
 import Data.List (intercalate, nub, isSuffixOf)
+import qualified Data.Char
 import Util (cast)
 import Text.PrettyPrint (render)
 
@@ -322,7 +323,17 @@ main = do
             -- Normal mode: treat as single file with all agents
             (filename, input) <- case maybeFilename of
                 Nothing -> do
+                    isTTY <- hIsTerminalDevice stdin
+                    when isTTY $ do
+                        hPutStrLn stderr "Error: no input file given and stdin is a terminal."
+                        hPutStrLn stderr "Pass a choreography filename, pipe input on stdin, or use --stitch."
+                        hPutStrLn stderr "Try 'CCHaskell --help' for more information."
+                        fail "No input provided"
                     input <- hGetContents stdin
+                    when (all Data.Char.isSpace input) $ do
+                        hPutStrLn stderr "Error: stdin produced no input."
+                        hPutStrLn stderr "Pass a choreography filename, pipe input on stdin, or use --stitch."
+                        fail "Empty input"
                     return ("<stdin>", input)
                 Just filename -> do
                     input <- readFile filename
