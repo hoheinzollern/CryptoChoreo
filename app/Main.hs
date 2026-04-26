@@ -17,6 +17,8 @@ import ExamplePVT
 import Term
 import ProVerifPrinter
 import ProtocolSetup (protocolSetup)
+import qualified SAPIC
+import qualified SAPICPrinter
 import System.Environment (getArgs)
 import System.Exit (exitSuccess)
 import System.IO (stdin, hGetContents, hPutStrLn, stderr, hIsTerminalDevice)
@@ -125,22 +127,25 @@ printTranslationResult filterNoops agent result = do
 
 
 -- | Parse command line arguments
-parseArgs :: [String] -> Either String (Maybe String, Bool, Maybe String, Maybe String, Bool, MemoryModel)
-parseArgs args = go args Nothing False Nothing Nothing False WithAxioms
+parseArgs :: [String] -> Either String (Maybe String, Bool, Maybe String, Maybe String, Bool, MemoryModel, Maybe String, Bool)
+parseArgs args = go args Nothing False Nothing Nothing False WithAxioms Nothing False
   where
-    go [] choreo filter proverif stitch runpv mm = Right (choreo, filter, proverif, stitch, runpv, mm)
-    go ("--help" : _) _ _ _ _ _ _ = Left "HELP"
-    go ("-h" : _) _ _ _ _ _ _ = Left "HELP"
-    -- go ("--filter" : rest) choreo _ proverif stitch runpv mm = go rest choreo True proverif stitch runpv mm
-    go ("--proverif" : rest) choreo filter _ stitch runpv mm = go rest choreo filter (Just []) stitch runpv mm
-    go ("--pvout" : filename : rest) choreo filter _ stitch runpv mm = go rest choreo filter (Just filename) stitch runpv mm
-    go ("--stitch" : spec : rest) choreo filter proverif _ runpv mm = go rest choreo filter proverif (Just spec) runpv mm
-    go ("--runproverif" : rest) choreo filter proverif stitch _ mm = go rest choreo filter proverif stitch True mm
-    go ("--memorymodel" : "withaxioms" : rest) choreo filter proverif stitch runpv _ = go rest choreo filter proverif stitch runpv WithAxioms
-    go ("--memorymodel" : "noaxioms" : rest) choreo filter proverif stitch runpv _ = go rest choreo filter proverif stitch runpv NoAxioms
-    go ("--memorymodel" : model : _) _ _ _ _ _ _ = Left $ "Invalid memory model: " ++ model ++ ". Use 'withaxioms' or 'noaxioms'."
-    go (filename : rest) Nothing filter proverif stitch runpv mm = go rest (Just filename) filter proverif stitch runpv mm
-    go _ _ _ _ _ _ _ = Left "Invalid arguments"
+    go [] choreo filter proverif stitch runpv mm sapic sanity = Right (choreo, filter, proverif, stitch, runpv, mm, sapic, sanity)
+    go ("--help" : _) _ _ _ _ _ _ _ _ = Left "HELP"
+    go ("-h" : _) _ _ _ _ _ _ _ _ = Left "HELP"
+    -- go ("--filter" : rest) choreo _ proverif stitch runpv mm sapic sanity = go rest choreo True proverif stitch runpv mm sapic sanity
+    go ("--proverif" : rest) choreo filter _ stitch runpv mm sapic sanity = go rest choreo filter (Just []) stitch runpv mm sapic sanity
+    go ("--pvout" : filename : rest) choreo filter _ stitch runpv mm sapic sanity = go rest choreo filter (Just filename) stitch runpv mm sapic sanity
+    go ("--sapic" : rest) choreo filter proverif stitch runpv mm _ sanity = go rest choreo filter proverif stitch runpv mm (Just []) sanity
+    go ("--sapicout" : filename : rest) choreo filter proverif stitch runpv mm _ sanity = go rest choreo filter proverif stitch runpv mm (Just filename) sanity
+    go ("--sanity" : rest) choreo filter proverif stitch runpv mm sapic _ = go rest choreo filter proverif stitch runpv mm sapic True
+    go ("--stitch" : spec : rest) choreo filter proverif _ runpv mm sapic sanity = go rest choreo filter proverif (Just spec) runpv mm sapic sanity
+    go ("--runproverif" : rest) choreo filter proverif stitch _ mm sapic sanity = go rest choreo filter proverif stitch True mm sapic sanity
+    go ("--memorymodel" : "withaxioms" : rest) choreo filter proverif stitch runpv _ sapic sanity = go rest choreo filter proverif stitch runpv WithAxioms sapic sanity
+    go ("--memorymodel" : "noaxioms"  : rest) choreo filter proverif stitch runpv _ sapic sanity = go rest choreo filter proverif stitch runpv NoAxioms  sapic sanity
+    go ("--memorymodel" : model : _) _ _ _ _ _ _ _ _ = Left $ "Invalid memory model: " ++ model ++ ". Use 'withaxioms' or 'noaxioms'."
+    go (filename : rest) Nothing filter proverif stitch runpv mm sapic sanity = go rest (Just filename) filter proverif stitch runpv mm sapic sanity
+    go _ _ _ _ _ _ _ _ _ = Left "Invalid arguments"
 
 
 instance NameGenerator (Set String, Int) String where
@@ -268,7 +273,7 @@ main = do
     args <- getArgs
 
     -- Parse command line arguments
-    (maybeFilename, filterNoops, maybeProverifOutput, maybeStitchSpec, runProverif, memoryModel) <- case parseArgs args of
+    (maybeFilename, filterNoops, maybeProverifOutput, maybeStitchSpec, runProverif, memoryModel, maybeSapicOutput, sanityFlag) <- case parseArgs args of
         Left "HELP" -> do
             putStrLn "CCHaskell - Choreography to ProVerif translator"
             putStrLn ""
@@ -285,6 +290,9 @@ main = do
             putStrLn "                              Use 'main' to mark main file (provides prelude and goals)"
             putStrLn "                              Use '[API]' suffix to mark an agent as an API"
             putStrLn "  --runproverif               Automatically run proverif on generated file (requires --pvout)"
+            putStrLn "  --sapic                     Generate SAPIC+ theory and write to stdout (experimental)"
+            putStrLn "  --sapicout FILENAME         Generate SAPIC+ theory and write to FILENAME (experimental)"
+            putStrLn "  --sanity                    Emit exists-trace sanity (executability) lemmas alongside the goals"
             putStrLn "  --memorymodel MODEL         Memory model: 'noaxioms' or 'withaxioms' (default)"
             putStrLn "  filename                    Input choreography file (omit if using --stitch or reading from stdin)"
             putStrLn ""
@@ -413,10 +421,13 @@ main = do
     
     -- Check if we should generate ProVerif or just print translations
     case maybeProverifOutput of
-        Nothing -> do
-            -- No ProVerif output requested - print translation results
-            forM_ allTranslations $ \(agent, result, _, _, _, _, _) -> 
-                printTranslationResult filterNoops agent result
+        Nothing
+            -- If only SAPIC was requested, skip the IR dump.
+            | Just _ <- maybeSapicOutput -> return ()
+            | otherwise -> do
+                -- No ProVerif/SAPIC output requested - print translation results
+                forM_ allTranslations $ \(agent, result, _, _, _, _, _) ->
+                    printTranslationResult filterNoops agent result
         
         Just outputFile -> do
             unless (null outputFile) $ do
@@ -512,4 +523,63 @@ main = do
                             hPutStrLn stderr $ replicate 50 '=' ++ "\n"
                             _ <- system $ "proverif " ++ outputFile
                             return ()
+
+    -- Emit SAPIC+ theory if requested. Independent of --proverif: both backends
+    -- can be requested in the same invocation.
+    case maybeSapicOutput of
+        Nothing -> return ()
+        Just sapicOutFile -> do
+            let successful = [(agent, local, frame, goalSet, secrecyGoals) |
+                    (agent, TR (Right (_,local)), frame, goalSet, secrecyGoals, _, _) <- allTranslations]
+                failures = [(agent, err, file) |
+                    (agent, TR (Left err), _, _, _, file, _) <- allTranslations]
+            unless (null failures) $ do
+                forM_ failures $ \(agent, err, file) ->
+                    hPutStrLn stderr $ "Error translating " ++ show agent ++ " from " ++ file ++ ": " ++ prettyFailure err
+                hPutStrLn stderr "\nERROR: Translation failed for some agents"
+                fail "SAPIC+ generation failed due to translation errors"
+            let agentTerms = concatMap (\agent -> case agent of
+                                Trusted f -> [Fun (ExampleAlgebra.Other f) [], Var f]
+                                Untrusted v -> [Fun (ExampleAlgebra.Other v) [], Var v]
+                             ) allAgents
+                stringifyLocalString = stringifyLocal agentTerms
+                -- Both trusted and untrusted agent names get the $ prefix:
+                -- Untrusted agents appear as Var in the IR, Trusted ones as
+                -- 0-ary Fun. SAPIC.markAgents handles both cases.
+                allAgentNames = Set.fromList $
+                    [v | Untrusted v <- allAgents] ++ [f | Trusted f <- allAgents]
+                -- Each agent runs in a replicated session that first reads
+                -- all public agent identifiers from the network. Without
+                -- the in($X) bindings Tamarin's well-formedness checker
+                -- rejects the process (free public variables).
+                bindAgents p = foldr (\name -> SAPIC.SIn (Var ('$':name))) p (Set.toList allAgentNames)
+                perAgentSapic = map (\(agent, local, frame, _, _) ->
+                    let unfolded = unfoldLocalKnowledge frame local
+                        s = SAPIC.localToSapic (stringifyLocalString unfolded)
+                        marked = SAPIC.markAgents allAgentNames s
+                    in (agent, SAPIC.SBang (bindAgents marked))) successful
+                combined = foldr1 (\a b -> SAPIC.SPar a b) (map snd perAgentSapic)
+                -- Collect goals across agents (mirrors the ProVerif emit logic).
+                (sapicWeak, sapicStrong) =
+                    foldl (\(w1,s1) (_,_,_,(w2,s2),_) -> (w1++w2, s1++s2)) ([],[]) successful
+                sapicSecrecyGoals = nub $ concatMap (\(_,_,_,_,s) -> s) successful
+                weakAuthNames   = nub [name | (name,_,_,_) <- sapicWeak]
+                strongAuthNames = nub [name | (name,_,_,_) <- sapicStrong]
+                secrecyArities  = nub [(name, length terms) | (name, terms) <- sapicSecrecyGoals]
+                theoryName = "CryptoChoreo"
+                sapicUserFuncs = [(name, length inputTypes)
+                                 | (name, inputTypes, _) <- allPublicFuncs ++ allPrivateFuncs]
+                sapicCode = SAPICPrinter.generateCompleteSapicFile
+                                theoryName
+                                sanityFlag
+                                sapicUserFuncs
+                                secrecyArities
+                                weakAuthNames
+                                strongAuthNames
+                                combined
+            if null sapicOutFile
+                then putStrLn sapicCode
+                else do
+                    writeFile sapicOutFile sapicCode
+                    hPutStrLn stderr $ "SAPIC+ theory written to " ++ sapicOutFile
 
