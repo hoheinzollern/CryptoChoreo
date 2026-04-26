@@ -548,17 +548,19 @@ main = do
                 -- 0-ary Fun. SAPIC.markAgents handles both cases.
                 allAgentNames = Set.fromList $
                     [v | Untrusted v <- allAgents] ++ [f | Trusted f <- allAgents]
-                -- Each agent runs in a replicated session that first reads
-                -- all public agent identifiers from the network. Without
-                -- the in($X) bindings Tamarin's well-formedness checker
-                -- rejects the process (free public variables).
+                -- Bind the agent identifiers ONCE at the outer level so the
+                -- three agent bodies share the same $A/$B/$s within each
+                -- session. Per-agent in($X) wrapping (the previous shape)
+                -- gave each role its own independent binding, which made
+                -- Tamarin's exists-trace search unable to construct any
+                -- matching trace and left every all-traces lemma vacuous.
                 bindAgents p = foldr (\name -> SAPIC.SIn (Var ('$':name))) p (Set.toList allAgentNames)
                 perAgentSapic = map (\(agent, local, frame, _, _) ->
                     let unfolded = unfoldLocalKnowledge frame local
                         s = SAPIC.localToSapic (stringifyLocalString unfolded)
-                        marked = SAPIC.markAgents allAgentNames s
-                    in (agent, SAPIC.SBang (bindAgents marked))) successful
-                combined = foldr1 (\a b -> SAPIC.SPar a b) (map snd perAgentSapic)
+                    in (agent, SAPIC.markAgents allAgentNames s)) successful
+                combinedAgents = foldr1 (\a b -> SAPIC.SPar a b) (map snd perAgentSapic)
+                combined = SAPIC.SBang (bindAgents combinedAgents)
                 -- Collect goals across agents (mirrors the ProVerif emit logic).
                 (sapicWeak, sapicStrong) =
                     foldl (\(w1,s1) (_,_,_,(w2,s2),_) -> (w1++w2, s1++s2)) ([],[]) successful

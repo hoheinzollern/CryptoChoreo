@@ -44,11 +44,16 @@ renameFun f = case f of
     _ | f `elem` reserved -> "pv_" ++ f
       | otherwise         -> f
   where
+    -- Note: fst, snd, pair are NOT in this list. They are Tamarin's
+    -- builtin pair destructors (fst(<x,y>)=x, snd(<x,y>)=y), and our
+    -- IR's fst/snd are pair destructors with the same semantics, so we
+    -- want them to share the equation. Renaming them to pv_fst/pv_snd
+    -- left them opaque and made every pair-destructuring check fail,
+    -- killing the protocol.
     reserved =
       [ "pk", "inv", "sign", "verify"
       , "aenc", "adec", "senc", "sdec"
       , "mac", "h", "kdf"
-      , "fst", "snd", "pair"
       , "exp", "g", "mun"
       , "true", "false"
       ]
@@ -76,18 +81,26 @@ ppTerm (Fun f [arg]) | f `elem` typeConverters = ppTerm arg
 ppTerm (Fun f []) = text (renameFun f)
 ppTerm (Fun f args) = text (renameFun f) <> parens (hcat $ punctuate comma (map ppTerm args))
 
+-- | Pretty-print the body of a sequential prefix (in/out/new/let/event).
+-- SAPIC+'s ';' binds tighter than '||', so when the body is a parallel
+-- composition we must wrap it in parens or the binding scope shrinks
+-- to just the first parallel branch.
+ppBody :: SapicProcess -> Doc
+ppBody p@(SPar _ _) = parens (ppSapic p)
+ppBody p            = ppSapic p
+
 ppSapic :: SapicProcess -> Doc
 ppSapic SZero = text "0"
 ppSapic (SOut t p) =
-    text "out" <> parens (ppTerm t) <> semi $$ ppSapic p
+    text "out" <> parens (ppTerm t) <> semi $$ ppBody p
 ppSapic (SIn t p) =
-    text "in"  <> parens (ppTerm t) <> semi $$ ppSapic p
+    text "in"  <> parens (ppTerm t) <> semi $$ ppBody p
 ppSapic (SNew x p) =
-    text "new" <+> text x <> semi $$ ppSapic p
+    text "new" <+> text x <> semi $$ ppBody p
 ppSapic (SLet x t p) =
-    text "let" <+> text x <+> equals <+> ppTerm t <+> text "in" $$ ppSapic p
+    text "let" <+> text x <+> equals <+> ppTerm t <+> text "in" $$ ppBody p
 ppSapic (SEvent name args p) =
-    text "event" <+> text (capitalize name) <> parens (hcat $ punctuate comma (map ppTerm args)) <> semi $$ ppSapic p
+    text "event" <+> text (capitalize name) <> parens (hcat $ punctuate comma (map ppTerm args)) <> semi $$ ppBody p
 ppSapic (SIf t1 t2 p q) =
     text "if" <+> ppTerm t1 <+> equals <+> ppTerm t2 <+> text "then" $$
     nest 2 (ppSapic p) $$

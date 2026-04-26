@@ -22,7 +22,6 @@ sapicTheoryHeader name = unlines
     , "  pv_sign/2, open/2,"
     , "  pv_pk/1, pv_inv/1 [private], pubk/1,"
     , "  crypt/2, dcrypt/2,"
-    , "  pv_fst/1, pv_snd/1,"
     , "  pv_kdf/1, invkdf/1, skdf/1,"
     , "  pubkey2bitstring/1, agent2bitstring/1, skey2bitstring/1, privkey2bitstring/1,"
     , "  sk/2 [private],"
