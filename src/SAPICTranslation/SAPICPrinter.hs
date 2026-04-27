@@ -190,28 +190,39 @@ userFunctionDeclarations funcs =
     intercalate ",\n  " [renameFun n ++ "/" ++ show ar | (n, ar) <- funcs] ++
     "\n\n"
 
+-- | Disjuncts that excuse the lemma if any of the named agents was
+-- compromised. Mirrors ProVerif's "A <> i && B <> i &&" honesty
+-- clauses in the negative direction: there, traces with a corrupted
+-- agent are *excluded* from the query precondition; here we conclude
+-- the property OR (there's a Reveal of one of the agents). The
+-- corresponding Reveal events come from the corruption process
+-- attached to the theory in main.
+revealEscapes :: [String] -> String
+revealEscapes [] = ""
+revealEscapes agents =
+    concat ["\n      | (Ex #r. Reveal(" ++ a ++ ") @ #r)" | a <- agents]
+
 -- | Secrecy lemma: the secret (last argument) is never derivable by the
--- attacker in any trace where the secrecy event fires. We don't model
--- corruption explicitly, so this lemma will fail whenever any of the
--- listed agents is the intruder; the ProVerif backend handles this with
--- A <> i clauses, which Tamarin doesn't support directly without an
--- explicit corruption model.
+-- attacker in any trace where the secrecy event fires AND no listed
+-- agent has been compromised via Reveal.
+-- Lemma vars are untyped (msg sort) so Tamarin's positional sort
+-- inference on the action fact isn't overridden; the Reveal action
+-- uses the same vars positionally and unifies against $X via msg sort.
 secrecyLemma :: String -> Int -> String
 secrecyLemma name nArgs =
-    let vars = ["x" ++ show i | i <- [1..nArgs]]
-        secret = last vars
-        argList = unwords vars
-        argTuple = intercalate ", " vars
+    let agentVars = ["x" ++ show i | i <- [1..nArgs - 1]]
+        secret    = "x" ++ show nArgs
+        vars      = agentVars ++ [secret]
+        argList   = unwords vars
+        argTuple  = intercalate ", " vars
     in "lemma " ++ name ++ "_secrecy:\n" ++
        "  \"All " ++ argList ++ " #i.\n" ++
        "    " ++ capitalize name ++ "(" ++ argTuple ++ ") @ #i\n" ++
-       "    ==> not (Ex #j. K(" ++ secret ++ ") @ #j)\"\n"
+       "    ==> not (Ex #j. K(" ++ secret ++ ") @ #j)" ++
+       revealEscapes agentVars ++ "\"\n"
 
 -- | Weak (non-injective) authentication: every End-event is preceded by
 -- a matching Begin-event with the same arguments.
--- The event names in the IR are already "begin{name}"/"end{name}" and
--- only the first letter is capitalized on emit, so the lemma must
--- reference "End{name}" / "Begin{name}" with that same casing.
 weakAuthLemma :: String -> String
 weakAuthLemma name =
     let endName   = capitalize ("end"   ++ name)
@@ -219,7 +230,8 @@ weakAuthLemma name =
     in "lemma " ++ name ++ ":\n" ++
        "  \"All a b m #i.\n" ++
        "    " ++ endName ++ "(a, b, m) @ #i\n" ++
-       "    ==> Ex #j. " ++ beginName ++ "(a, b, m) @ #j\"\n"
+       "    ==> (Ex #j. " ++ beginName ++ "(a, b, m) @ #j)" ++
+       revealEscapes ["a", "b"] ++ "\"\n"
 
 -- | Strong (injective) authentication: every End-event is preceded by a
 -- distinct matching Begin-event (no two End-events share a Begin).
@@ -230,8 +242,9 @@ strongAuthLemma name =
     in "lemma " ++ name ++ "_inj:\n" ++
        "  \"All a b m #i.\n" ++
        "    " ++ endName ++ "(a, b, m) @ #i\n" ++
-       "    ==> (Ex #j. " ++ beginName ++ "(a, b, m) @ #j & #j < #i)\n" ++
-       "      & (All #i2. " ++ endName ++ "(a, b, m) @ #i2 ==> #i = #i2)\"\n"
+       "    ==> ((Ex #j. " ++ beginName ++ "(a, b, m) @ #j & #j < #i)\n" ++
+       "          & (All #i2. " ++ endName ++ "(a, b, m) @ #i2 ==> #i = #i2))" ++
+       revealEscapes ["a", "b"] ++ "\"\n"
 
 intercalate :: String -> [String] -> String
 intercalate _ [] = ""

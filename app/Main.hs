@@ -560,7 +560,28 @@ main = do
                         s = SAPIC.localToSapic (stringifyLocalString unfolded)
                     in (agent, SAPIC.markAgents allAgentNames s)) successful
                 combinedAgents = foldr1 (\a b -> SAPIC.SPar a b) (map snd perAgentSapic)
-                combined = SAPIC.SBang (bindAgents combinedAgents)
+                -- Agent corruption process: lets the attacker reveal any
+                -- public agent identifier's private secrets. Two parallel
+                -- branches: one leaks the asymmetric private key
+                -- pv_inv(pv_pk($X)); the other leaks each shared key
+                -- sk($X, $Y) -- compromising $X also compromises every
+                -- pairwise key it shares with another $Y. Models the
+                -- ProVerif "A <> i" honesty clauses in lemma form (see
+                -- revealEscapes in SAPICPrinter).
+                revealAsymProc =
+                    SAPIC.SBang $
+                    SAPIC.SIn (Var "$X") $
+                    SAPIC.SEvent "Reveal" [Var "$X"] $
+                    SAPIC.SOut (Fun "pv_inv" [Fun "pv_pk" [Var "$X"]]) SAPIC.SZero
+                revealSkProc =
+                    SAPIC.SBang $
+                    SAPIC.SIn (Var "$X") $
+                    SAPIC.SIn (Var "$Y") $
+                    SAPIC.SEvent "Reveal" [Var "$X"] $
+                    SAPIC.SOut (Fun "sk" [Var "$X", Var "$Y"]) SAPIC.SZero
+                combined =
+                    SAPIC.SPar (SAPIC.SBang (bindAgents combinedAgents)) $
+                    SAPIC.SPar revealAsymProc revealSkProc
                 -- Collect goals across agents (mirrors the ProVerif emit logic).
                 (sapicWeak, sapicStrong) =
                     foldl (\(w1,s1) (_,_,_,(w2,s2),_) -> (w1++w2, s1++s2)) ([],[]) successful
