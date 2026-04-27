@@ -116,13 +116,13 @@ ppSapic (SBang p) =
     text "!" <> parens (ppSapic p)
 ppSapic (SLookup t x p q) =
     text "lookup" <+> ppTerm t <+> text "as" <+> text x <+> text "in" $$
-    nest 2 (ppSapic p) $$
+    nest 2 (ppBody p) $$
     text "else" $$
-    nest 2 (ppSapic q)
+    nest 2 (ppBody q)
 ppSapic (SInsert t1 t2 p) =
-    text "insert" <+> ppTerm t1 <> comma <+> ppTerm t2 <> semi $$ ppSapic p
-ppSapic (SLock t p)   = text "lock"   <+> ppTerm t <> semi $$ ppSapic p
-ppSapic (SUnlock t p) = text "unlock" <+> ppTerm t <> semi $$ ppSapic p
+    text "insert" <+> ppTerm t1 <> comma <+> ppTerm t2 <> semi $$ ppBody p
+ppSapic (SLock t p)   = text "lock"   <+> ppTerm t <> semi $$ ppBody p
+ppSapic (SUnlock t p) = text "unlock" <+> ppTerm t <> semi $$ ppBody p
 
 -- | Wrap a single process in a complete SAPIC+ theory, plus lemma blocks
 -- derived from the choreography's security goals. The goal arguments

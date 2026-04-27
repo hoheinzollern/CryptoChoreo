@@ -529,8 +529,8 @@ main = do
     case maybeSapicOutput of
         Nothing -> return ()
         Just sapicOutFile -> do
-            let successful = [(agent, local, frame, goalSet, secrecyGoals) |
-                    (agent, TR (Right (_,local)), frame, goalSet, secrecyGoals, _, _) <- allTranslations]
+            let successful = [(agent, local, frame, goalSet, secrecyGoals, isAPI) |
+                    (agent, TR (Right (_,local)), frame, goalSet, secrecyGoals, _, isAPI) <- allTranslations]
                 failures = [(agent, err, file) |
                     (agent, TR (Left err), _, _, _, file, _) <- allTranslations]
             unless (null failures) $ do
@@ -555,10 +555,18 @@ main = do
                 -- Tamarin's exists-trace search unable to construct any
                 -- matching trace and left every all-traces lemma vacuous.
                 bindAgents p = foldr (\name -> SAPIC.SIn (Var ('$':name))) p (Set.toList allAgentNames)
-                perAgentSapic = map (\(agent, local, frame, _, _) ->
+                -- API serialization: wrap [API]-flagged agent bodies in a
+                -- single global lock <'api'>; ... unlock <'api'>;. Mirrors
+                -- ProVerif's api_call_lock private channel, which enforces
+                -- at-most-one API call in flight across all sessions.
+                apiLockKey = Fun "'api'" []
+                wrapApi isAPI body
+                    | isAPI     = SAPIC.SLock apiLockKey (SAPIC.appendUnlock apiLockKey body)
+                    | otherwise = body
+                perAgentSapic = map (\(agent, local, frame, _, _, isAPI) ->
                     let unfolded = unfoldLocalKnowledge frame local
                         s = SAPIC.localToSapic (stringifyLocalString unfolded)
-                    in (agent, SAPIC.markAgents allAgentNames s)) successful
+                    in (agent, wrapApi isAPI (SAPIC.markAgents allAgentNames s))) successful
                 combinedAgents = foldr1 (\a b -> SAPIC.SPar a b) (map snd perAgentSapic)
                 -- Agent corruption process: lets the attacker reveal any
                 -- public agent identifier's private secrets. Two parallel
@@ -584,8 +592,8 @@ main = do
                     SAPIC.SPar revealAsymProc revealSkProc
                 -- Collect goals across agents (mirrors the ProVerif emit logic).
                 (sapicWeak, sapicStrong) =
-                    foldl (\(w1,s1) (_,_,_,(w2,s2),_) -> (w1++w2, s1++s2)) ([],[]) successful
-                sapicSecrecyGoals = nub $ concatMap (\(_,_,_,_,s) -> s) successful
+                    foldl (\(w1,s1) (_,_,_,(w2,s2),_,_) -> (w1++w2, s1++s2)) ([],[]) successful
+                sapicSecrecyGoals = nub $ concatMap (\(_,_,_,_,s,_) -> s) successful
                 weakAuthNames   = nub [name | (name,_,_,_) <- sapicWeak]
                 strongAuthNames = nub [name | (name,_,_,_) <- sapicStrong]
                 secrecyArities  = nub [(name, length terms) | (name, terms) <- sapicSecrecyGoals]
