@@ -1,0 +1,33 @@
+# Minimal cell-using protocol with a structured authentication goal.
+# Exercises the SAPIC+ backend's state encoding (lookup/insert) end to
+# end: A writes a freshly generated nonce into a shared memory cell,
+# sends an authenticated copy to B over the public network, and B
+# reads the same cell to confirm.
+#
+# Used as a regression test for the cells implementation: produces a
+# small, fast Tamarin proof
+#   weakauth0        (all-traces):   verified
+#   exec_Endweakauth0 (exists-trace): verified  (sanity, --sanity flag)
+# with no well-formedness warnings.
+
+functions:
+public outgoing: bitstring
+public tag1: bitstring
+public val: bitstring
+
+cells: mem
+
+agents: A B
+
+knowledge:
+A knows A B sk(A,B).
+B knows A B sk(A,B).
+
+choreo:
+
+A: new NA.
+A: mem[(A,B,outgoing)] := (val,NA).
+A -> B: (tag1,scrypt(NA,sk(A,B))).
+B: (val,NA) := mem[(A,B,outgoing)].
+B weakly authenticates A on NA.
+end
