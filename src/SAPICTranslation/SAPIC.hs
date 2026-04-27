@@ -4,6 +4,8 @@ import Term
 import Local
 import Data.Set (Set)
 import qualified Data.Set as Set
+import Data.Map (Map)
+import qualified Data.Map as Map
 
 -- | SAPIC+ process algebra (Tamarin-flavored, stateful pi calculus).
 data SapicProcess
@@ -51,7 +53,11 @@ atomicToSapic ls (LChoice as)          = SChoice (map (atomicToSapic ls) as)
 --       a pure read needs no lock since SAPIC+ lookup is concurrent
 --       safe).
 -- Read body: lookup with else branch initializing from
--- memory_initial_value (so the first reader doesn't hit a dead end).
+-- memory_initial_value. The else branch uses a *renamed* variable
+-- (v ++ "_init") because Tamarin's well-formedness check rejects
+-- binding the same name twice statically -- even when the bindings
+-- are in mutually-exclusive lookup branches. The continuation is
+-- duplicated and substituted accordingly.
 atomicToSapic ls (LRead cell v addr a) =
     let key       = cellKey cell addr
         ck        = (cell, addr)
@@ -59,9 +65,13 @@ atomicToSapic ls (LRead cell v addr a) =
         needsLock = not held && containsWriteFor cell addr a
         ls'       = if needsLock then Set.insert ck ls else ls
         cont      = atomicToSapic ls' a
-        initVal   = Fun "memory_initial_value" []
-        initPath  = SLet v initVal (SInsert key (Var v) cont)
-        readBody  = SLookup key v cont initPath
+        -- Alpha-rename ALL binders in the duplicated copy (then
+        -- additionally rename v -> v_init for the init-path lookup).
+        contInitBase = alphaRenameBinders "_init" cont
+        contInit     = renameVar v (v ++ "_init") contInitBase
+        initVal      = Fun "memory_initial_value" []
+        initPath     = SLet (v ++ "_init") initVal (SInsert key (Var (v ++ "_init")) contInit)
+        readBody     = SLookup key v cont initPath
     in if needsLock then SLock key readBody else readBody
 atomicToSapic ls (LWrites w)           = writesToSapic ls w
 
@@ -101,6 +111,72 @@ containsWriteFor cell addr = go
       | c == cell && addr' == addr = True
       | otherwise                  = goW rest
     goW (Local _) = False
+
+-- | Rename free uses of Var oldName to Var newName everywhere in a
+-- process. Only the supplied name is rewritten; other binders are
+-- left alone. Used for the LRead's lookup-bound variable so the
+-- else-branch's `let v = memory_initial_value` doesn't collide with
+-- the lookup's `as v`.
+renameVar :: String -> String -> SapicProcess -> SapicProcess
+renameVar old new = renameVars (Map.singleton old new)
+
+-- | Apply a renaming map to every Var in a process AND to every
+-- locally-introduced binder (SNew/SLet/SLookup/SIn-Var). Used to
+-- alpha-rename a process subtree being duplicated between mutually-
+-- exclusive lookup branches: Tamarin's well-formedness check rejects
+-- syntactically duplicate binders even in disjoint branches.
+renameVars :: Map String String -> SapicProcess -> SapicProcess
+renameVars m = go
+  where
+    rn x = Map.findWithDefault x x m
+    go SZero               = SZero
+    go (SOut t p)          = SOut (rt t) (go p)
+    go (SIn t p)           = SIn  (rt t) (go p)
+    go (SNew x p)          = SNew (rn x) (go p)
+    go (SLet x t p)        = SLet (rn x) (rt t) (go p)
+    go (SEvent name ts p)  = SEvent name (map rt ts) (go p)
+    go (SIf t1 t2 p q)     = SIf (rt t1) (rt t2) (go p) (go q)
+    go (SChoice ps)        = SChoice (map go ps)
+    go (SPar p q)          = SPar (go p) (go q)
+    go (SBang p)           = SBang (go p)
+    go (SLookup t x p q)   = SLookup (rt t) (rn x) (go p) (go q)
+    go (SInsert t1 t2 p)   = SInsert (rt t1) (rt t2) (go p)
+    go (SLock t p)         = SLock   (rt t) (go p)
+    go (SUnlock t p)       = SUnlock (rt t) (go p)
+
+    rt (Var v) = Var (rn v)
+    rt (Fun f args) = Fun f (map rt args)
+
+-- | Collect the set of names introduced by binders in a process.
+boundNames :: SapicProcess -> Set String
+boundNames = go
+  where
+    go SZero               = Set.empty
+    go (SOut _ p)          = go p
+    go (SIn t p)           = Set.union (varsIn t) (go p)
+    go (SNew x p)          = Set.insert x (go p)
+    go (SLet x _ p)        = Set.insert x (go p)
+    go (SEvent _ _ p)      = go p
+    go (SIf _ _ p q)       = Set.union (go p) (go q)
+    go (SChoice ps)        = Set.unions (map go ps)
+    go (SPar p q)          = Set.union (go p) (go q)
+    go (SBang p)           = go p
+    go (SLookup _ x p q)   = Set.insert x (Set.union (go p) (go q))
+    go (SInsert _ _ p)     = go p
+    go (SLock _ p)         = go p
+    go (SUnlock _ p)       = go p
+
+    -- Variables that an `in(pattern)` binds: any Var inside the term.
+    varsIn (Var v) = Set.singleton v
+    varsIn (Fun _ args) = Set.unions (map varsIn args)
+
+-- | Alpha-rename every locally-introduced binder in a process by
+-- appending a suffix. Used to duplicate the LRead continuation into
+-- the lookup else-branch without binding the same name twice.
+alphaRenameBinders :: String -> SapicProcess -> SapicProcess
+alphaRenameBinders suffix p =
+    let renamed = Map.fromSet (++ suffix) (boundNames p)
+    in renameVars renamed p
 
 -- | Append `unlock key;` immediately before every SZero leaf in the
 -- process. Used to release the API serialization baton at every point
